@@ -179,6 +179,128 @@ DCEL(VertexList&& vertices,
 void
 DCEL::
 improve_convex_decomposition() {
+  DBG_FUNC_BEGIN(DBG_IMPROVE);
+
+  do {
+    /* Pick a vertex */
+    Vertex* v;
+    unsigned v_idx_in_higher_degree_vertices;
+    {
+      std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
+      v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
+
+      v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
+      DBG(DBG_IMPROVE) << "picked:" << *v;
+    }
+
+    /* Pick an edge */
+    Edge* e;
+    {
+      std::uniform_int_distribution<unsigned> edge_picker(0, v->degree - 1);
+      unsigned e_idx = edge_picker(random_engine);
+
+      DCEL::AroundVertexFacesIterator it(v->incident_edge);
+      for (unsigned i=e_idx; i>0; ++it, --i) {};
+      assert(*it);
+
+      e = *it;
+      DBG(DBG_IMPROVE) << "first picked:" << *e;
+      DCEL::AroundVertexFacesIterator it2(e);
+      for (; *it2 && !(it2->can_remove_at_tip()); ++it2) {};
+      assert(*it2);
+      assert(it2->can_remove_at_tip());
+      e = *it2;
+      assert(! e->is_on_ch && !e->opposite->is_on_ch);
+      DBG(DBG_IMPROVE) << "picked:" << *e;
+    };
+
+    /* Move left or right */
+    std::uniform_int_distribution<unsigned> direction_picker(0, 1);
+    bool move_right = direction_picker(random_engine);
+
+    /* Check if legal to move.  It must not coincide with any edges once moved,
+     * and the angle at the tail end must not get > pi.
+     *
+     * It coincides either when there only is a triangle on the side, or when
+     * wheter are only pi-degree vertices between the tail and the new tip.
+     */
+    if (move_right || 1) {
+      if (e->v == e->opposite->next->next->v) {
+        DBG(DBG_IMPROVE) << " move would collapse a triangle";
+        break;
+      }
+      const Vertex* tail = e->opposite->v;
+      const Vertex* new_tip = e->opposite->prev->opposite->v;
+      const Vertex* in_between = e->opposite->next->v;
+      assert(new_tip != in_between);
+      DBG(DBG_IMPROVE) << "tail       :" << *tail;
+      DBG(DBG_IMPROVE) << "in_between :" << *in_between;
+      DBG(DBG_IMPROVE) << "new_tip    :" << *new_tip;
+      int o = Vertex::orientation(*tail, *in_between, *new_tip);
+      DBG(DBG_IMPROVE) << "o:" << o;
+      if (o == 0) {
+        DBG(DBG_IMPROVE) << " moving onto collinear edges";
+        break;
+      }
+      assert(o > 0);
+
+      const Vertex* other_behind_tail = e->prev->opposite->v;
+      if (Vertex::orientation(*other_behind_tail, *tail, *new_tip) < 0) {
+        DBG(DBG_IMPROVE) << " would create reflex tail";
+        break;
+      }
+
+      /* We can move the tip */
+      Vertex* old_v = e->v;
+      Edge* old_next = e->next;
+      Edge* moved_over = e->opposite->prev;
+      Edge* new_opposite_prev = moved_over->prev;
+
+      old_v->incident_edge = moved_over;
+      assert(old_v->incident_edge->v == old_v);
+
+      old_next->prev = moved_over;
+      moved_over->next = old_next;
+
+      moved_over->prev = e;
+      e->next = moved_over;
+
+      e->opposite->prev = new_opposite_prev;
+      new_opposite_prev->next = e->opposite;
+
+      bool new_v_old_is_of_higher_degree = new_opposite_prev->v->is_of_higher_degree;
+      e->v->dec_degree();
+      e->v = new_opposite_prev->v;
+      e->v->inc_degree();
+
+      assert(e->v->is_of_higher_degree);
+      assert(old_v == higher_degree_vertices[v_idx_in_higher_degree_vertices]);
+
+      if (new_v_old_is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
+        if (! old_v->is_of_higher_degree) {
+          DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
+          higher_degree_vertices[v_idx_in_higher_degree_vertices] = higher_degree_vertices.back();
+          higher_degree_vertices.pop_back();
+        } else {
+          DBG(DBG_IMPROVE) << " and old_v still is";
+        }
+      } else {
+        DBG(DBG_IMPROVE) << "new_v was not previously a higher degree vertex";
+        if (old_v->is_of_higher_degree) {
+          higher_degree_vertices.push_back(e->v);
+          DBG(DBG_IMPROVE) << "Adding new higher_degree_vertex";
+        } else {
+          DBG(DBG_IMPROVE) << "Replacing higher degree vertex in list";
+          higher_degree_vertices[v_idx_in_higher_degree_vertices] = e->v;
+        }
+      }
+      assert_valid();
+    } else {
+    }
+  } while (0);
+
+  DBG_FUNC_END(DBG_IMPROVE);
 }
 
 #if 0

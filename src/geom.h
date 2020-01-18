@@ -137,7 +137,7 @@ public:
   }
 
 protected:
-  bool check_remove_at_tip() const {
+  bool can_remove_at_tip() const {
     assert(v->is_of_higher_degree); /* otherwise we shouldn't call you in the first place */
     assert(opposite);
 
@@ -162,8 +162,8 @@ public:
             !opposite->is_on_ch &&
             v->is_of_higher_degree &&
             opposite->v->is_of_higher_degree &&
-            check_remove_at_tip() &&
-            opposite->check_remove_at_tip());
+            can_remove_at_tip() &&
+            opposite->can_remove_at_tip());
   }
 
   /** remove this edge

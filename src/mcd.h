@@ -21,10 +21,12 @@ extern bool main_loop_interrupted;
 
 #define DBG_GENERIC                       ( 1u << 0 )
 #define DBG_SETUP                         ( 1u << 1 )
+#define DBG_IMPROVE                       ( 1u << 2 )
 
 #define DEBUG_MASK (                  \
                 DBG_GENERIC                       | \
                 DBG_SETUP                         | \
+                DBG_IMPROVE                       | \
                 0 )
 /*
                 DBG_FLIP                          | \
