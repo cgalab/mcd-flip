@@ -93,6 +93,11 @@ DCEL(VertexList&& vertices,
 {
   DBG_FUNC_BEGIN(DBG_SETUP);
 
+  if (all_vertices.size() == 0) {
+    LOG(ERROR) << "No vertices loaded!";
+    exit(1);
+  }
+
   num_faces = 1 - all_vertices.size() + edges.size();
   DBG(DBG_SETUP) << "# faces: " << num_faces;
 
@@ -185,19 +190,20 @@ DCEL::
 improve_convex_decomposition() {
   DBG_FUNC_BEGIN(DBG_IMPROVE);
 
+  int max_iters = 1000000;
+
+  /* Pick a vertex */
+  Vertex* v;
+  {
+    std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
+    int v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
+
+    v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
+    assert(v->idx_in_higher_degree_vertices == v_idx_in_higher_degree_vertices);
+    DBG(DBG_IMPROVE) << "picked:" << *v;
+  }
+
   do {
-    /* Pick a vertex */
-    Vertex* v;
-    int v_idx_in_higher_degree_vertices;
-    {
-      std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
-      v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
-
-      v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
-      assert(v->idx_in_higher_degree_vertices == v_idx_in_higher_degree_vertices);
-      DBG(DBG_IMPROVE) << "picked:" << *v;
-    }
-
     /* Pick an edge */
     Edge* e;
     {
@@ -219,6 +225,25 @@ improve_convex_decomposition() {
       DBG(DBG_IMPROVE) << "picked:" << *e;
     };
 
+    if (improve_convex_decomposition_for_edge(e)) {
+      --max_iters;
+      if (max_iters <= 0) break;
+      v = e->v;
+      continue;
+    };
+    break;
+  } while (0);
+  DBG_FUNC_END(DBG_IMPROVE);
+}
+
+
+bool
+DCEL::
+improve_convex_decomposition_for_edge(Edge* e) {
+  bool res = false;
+  DBG_FUNC_BEGIN(DBG_IMPROVE);
+
+  do {
     /* Move left or right */
     std::uniform_int_distribution<unsigned> direction_picker(0, 1);
     bool move_right = direction_picker(random_engine);
@@ -279,11 +304,10 @@ improve_convex_decomposition() {
       tail->update_vertex_is_of_higher_degree();
 
       assert(e->v->is_of_higher_degree);
-      assert(old_v == higher_degree_vertices[v_idx_in_higher_degree_vertices]);
 
       if (! old_v->is_of_higher_degree) {
         DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
-        higher_degree_vertices_remove(v_idx_in_higher_degree_vertices);
+        higher_degree_vertices_remove(old_v);
       }
       if (new_v_old_is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
@@ -369,11 +393,10 @@ improve_convex_decomposition() {
       tail->update_vertex_is_of_higher_degree();
 
       assert(e->v->is_of_higher_degree);
-      assert(old_v == higher_degree_vertices[v_idx_in_higher_degree_vertices]);
 
       if (! old_v->is_of_higher_degree) {
         DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
-        higher_degree_vertices_remove(v_idx_in_higher_degree_vertices);
+        higher_degree_vertices_remove(old_v);
       }
       if (new_v_old_is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
@@ -410,9 +433,13 @@ improve_convex_decomposition() {
         assert_valid();
       };
     }
+
+    res = true;
+    break;
   } while (0);
 
   DBG_FUNC_END(DBG_IMPROVE);
+  return res;
 }
 
 #if 0

@@ -25,15 +25,11 @@ extern bool main_loop_interrupted;
 
 #define DEBUG_MASK (                  \
                 DBG_GENERIC                       | \
-                DBG_SETUP                         | \
-                DBG_IMPROVE                       | \
                 0 )
 /*
-                DBG_FLIP                          | \
-                DBG_ITERATORS                     | \
+                DBG_SETUP                         | \
+                DBG_IMPROVE                       | \
 
-                DBG_STATESAVE                     | \
-                DBG_STATERESTORE                  | \
 */
 
 #ifndef NDEBUG

@@ -354,6 +354,8 @@ class DCEL {
     FixedVector<Edge> all_edges; /** The list of all edges */
     unsigned num_faces; /** The number of faces of the entire graph right now. */
 
+    bool improve_convex_decomposition_for_edge(Edge* e);
+
   /* public interface */
   public:
     /** Initialize the DCEL with the vertices and a triangulation of their CH */
