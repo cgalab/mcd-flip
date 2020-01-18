@@ -18,6 +18,7 @@ public:
 private:
   unsigned degree = 0;
   bool is_of_higher_degree = false;
+  int idx_in_higher_degree_vertices = -1;
   Edge* incident_edge = NULL; /* Edge pointing towards v */
 
   bool get_vertex_is_of_higher_degree() const;
@@ -365,7 +366,7 @@ get_vertex_is_of_higher_degree() const {
     const Vertex &v1 = *e->opposite->v;
     const Vertex &v2 = *e->next->opposite->next->v;
     const Vertex &v3 = *e->next->v;
-    if (Vertex::orientation(*this, v1, v3) == 0) {
+    if (Vertex::orientation(*this, v1, v2) == 0) {
       return true;
     };
     if (Vertex::orientation(*this, v2, v3) == 0) {

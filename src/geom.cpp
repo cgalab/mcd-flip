@@ -167,6 +167,7 @@ DCEL(VertexList&& vertices,
     v.update_vertex_is_of_higher_degree();
     if (v.is_of_higher_degree) {
       DBG(DBG_SETUP) << " of higher degree: " << v;
+      v.idx_in_higher_degree_vertices = higher_degree_vertices.size();
       higher_degree_vertices.push_back(&v);
     }
   }
@@ -184,12 +185,13 @@ improve_convex_decomposition() {
   do {
     /* Pick a vertex */
     Vertex* v;
-    unsigned v_idx_in_higher_degree_vertices;
+    int v_idx_in_higher_degree_vertices;
     {
       std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
       v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
 
       v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
+      assert(v->idx_in_higher_degree_vertices == v_idx_in_higher_degree_vertices);
       DBG(DBG_IMPROVE) << "picked:" << *v;
     }
 
@@ -229,7 +231,7 @@ improve_convex_decomposition() {
         DBG(DBG_IMPROVE) << " move would collapse a triangle";
         break;
       }
-      const Vertex* tail = e->opposite->v;
+      Vertex* tail = e->opposite->v;
       const Vertex* new_tip = e->opposite->prev->opposite->v;
       const Vertex* in_between = e->opposite->next->v;
       assert(new_tip != in_between);
@@ -269,33 +271,64 @@ improve_convex_decomposition() {
       new_opposite_prev->next = e->opposite;
 
       bool new_v_old_is_of_higher_degree = new_opposite_prev->v->is_of_higher_degree;
-      e->v->dec_degree();
       e->v = new_opposite_prev->v;
+      assert(e->v == moved_over->opposite->v);
+
+      old_v->dec_degree();
       e->v->inc_degree();
+
+      bool tail_old_is_of_higher_degree = tail->is_of_higher_degree;
+      tail->update_vertex_is_of_higher_degree();
 
       assert(e->v->is_of_higher_degree);
       assert(old_v == higher_degree_vertices[v_idx_in_higher_degree_vertices]);
 
+      if (! old_v->is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
+        higher_degree_vertices[v_idx_in_higher_degree_vertices] = higher_degree_vertices.back();
+        higher_degree_vertices.pop_back();
+
+        higher_degree_vertices[v_idx_in_higher_degree_vertices]->idx_in_higher_degree_vertices = v_idx_in_higher_degree_vertices;
+        old_v->idx_in_higher_degree_vertices = -1;
+      }
       if (new_v_old_is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
-        if (! old_v->is_of_higher_degree) {
-          DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
-          higher_degree_vertices[v_idx_in_higher_degree_vertices] = higher_degree_vertices.back();
-          higher_degree_vertices.pop_back();
-        } else {
-          DBG(DBG_IMPROVE) << " and old_v still is";
-        }
       } else {
-        DBG(DBG_IMPROVE) << "new_v was not previously a higher degree vertex";
-        if (old_v->is_of_higher_degree) {
-          higher_degree_vertices.push_back(e->v);
-          DBG(DBG_IMPROVE) << "Adding new higher_degree_vertex";
-        } else {
-          DBG(DBG_IMPROVE) << "Replacing higher degree vertex in list";
-          higher_degree_vertices[v_idx_in_higher_degree_vertices] = e->v;
-        }
+        DBG(DBG_IMPROVE) << "Adding new higher_degree_vertex";
+        e->v->idx_in_higher_degree_vertices = higher_degree_vertices.size();
+        higher_degree_vertices.push_back(e->v);
       }
+      if (tail_old_is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "Tail previously was of higher degree with degree " << tail->degree;
+        if (!tail->is_of_higher_degree) {
+          DBG(DBG_IMPROVE) << "But is no more!";
+          unsigned idx = tail->idx_in_higher_degree_vertices;
+
+          higher_degree_vertices[idx] = higher_degree_vertices.back();
+          higher_degree_vertices.pop_back();
+
+          higher_degree_vertices[idx]->idx_in_higher_degree_vertices = idx;
+          tail->idx_in_higher_degree_vertices = -1;
+        }
+      } else if (tail->is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "Adding tail to higher_degree_vertex";
+        tail->idx_in_higher_degree_vertices = higher_degree_vertices.size();
+        higher_degree_vertices.push_back(tail);
+      };
+
+
       assert_valid();
+
+      if (moved_over->can_remove()) {
+        DBG(DBG_IMPROVE) << "(1) We can remove an edge!";
+      };
+      if (e->opposite->can_remove()) {
+        DBG(DBG_IMPROVE) << "(2) We can remove an edge!";
+      };
+      if (e->opposite->next->can_remove()) {
+        DBG(DBG_IMPROVE) << "(3) We can remove an edge!";
+      };
+
     } else {
     }
   } while (0);
@@ -405,7 +438,11 @@ assert_valid() const {
     v.assert_valid();
     if (v.is_of_higher_degree) {
       ++cnt_high_degree;
-    };
+      assert(v.idx_in_higher_degree_vertices >= 0);
+      assert(higher_degree_vertices[ v.idx_in_higher_degree_vertices ] == &v);
+    } else {
+      assert(v.idx_in_higher_degree_vertices == -1);
+    }
   }
   for (const auto &e : all_edges) {
     if (!e.is_alive) continue;
@@ -413,8 +450,10 @@ assert_valid() const {
   }
 
   assert(cnt_high_degree == higher_degree_vertices.size());
-  for (auto vptr_it : higher_degree_vertices) {
-    assert(vptr_it->is_of_higher_degree);
+  for (unsigned i=0; i<higher_degree_vertices.size(); ++i) {
+    assert(higher_degree_vertices[i]->idx_in_higher_degree_vertices >= 0);
+    assert((unsigned)higher_degree_vertices[i]->idx_in_higher_degree_vertices == i);
+    assert(higher_degree_vertices[i]->is_of_higher_degree);
   }
 }
 #endif
