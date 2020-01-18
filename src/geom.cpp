@@ -10,6 +10,9 @@ void
 Edge::
 assert_valid() const {
   assert(opposite);
+  assert(prev);
+  assert(next);
+
   assert(this == opposite->opposite);
 
   assert(this == prev->next);
@@ -299,17 +302,22 @@ improve_convex_decomposition() {
         higher_degree_vertices_append(tail);
       };
 
-
       assert_valid();
 
       if (moved_over->can_remove()) {
         DBG(DBG_IMPROVE) << "(1) We can remove an edge!";
+        remove_edge(moved_over);
+        assert_valid();
       };
-      if (e->opposite->can_remove()) {
+      if (e->opposite->prev->can_remove()) {
         DBG(DBG_IMPROVE) << "(2) We can remove an edge!";
+        remove_edge(e->opposite->prev);
+        assert_valid();
       };
       if (e->opposite->next->can_remove()) {
         DBG(DBG_IMPROVE) << "(3) We can remove an edge!";
+        remove_edge(e->opposite->next);
+        assert_valid();
       };
 
     } else {

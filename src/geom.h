@@ -192,8 +192,6 @@ public:
 
     v->dec_degree();
     opposite->v->dec_degree();
-
-    assert_valid();
   }
 
   /* Join this to next */
@@ -330,6 +328,23 @@ class DCEL {
       higher_degree_vertices.push_back(v);
     }
 
+    void remove_edge(Edge* e) {
+      e->remove();
+      if (! e->v->is_of_higher_degree) {
+        DBG(DBG_GENERIC) << "removed e->v is no longer of higher degree";
+        higher_degree_vertices_remove(e->v);
+      } else {
+        DBG(DBG_GENERIC) << "removed e->v still is of higher degree";
+      }
+      if (! e->opposite->v->is_of_higher_degree) {
+        DBG(DBG_GENERIC) << "removed e->opposite->v is no longer of higher degree";
+        higher_degree_vertices_remove(e->opposite->v);
+      } else {
+        DBG(DBG_GENERIC) << "removed e->opposite->v still is of higher degree";
+      }
+      --num_faces;
+    }
+
   /* The state of the DCEL */
   private:
     /* These stay fixed over all iterations.
@@ -408,6 +423,7 @@ get_vertex_is_of_higher_degree() const {
   }
 }
 
+#ifndef NDEBUG
 inline void
 Vertex::
 assert_valid() const {
@@ -417,7 +433,6 @@ assert_valid() const {
   assert(degree == find_degree());
 }
 
-#ifndef NDEBUG
 inline unsigned
 Vertex::
 find_degree() const {
