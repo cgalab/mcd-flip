@@ -30,6 +30,9 @@ edge_direction_comperator(const Edge* ea, const Edge* eb, const Vertex* v) {
   const Vertex* const va = ea->v;
   const Vertex* const vb = eb->v;
 
+  assert(ea->opposite->v == v);
+  assert(eb->opposite->v == v);
+
   assert(va != vb);
   assert(va != v);
   assert(vb != v);
@@ -46,7 +49,8 @@ edge_direction_comperator(const Edge* ea, const Edge* eb, const Vertex* v) {
    *           0 2                         2 3
    */
   static const int quadrant_map[4] = {2, 1, 3, 0};
-  unsigned quadrant_a, quadrant_b, is_right, is_top;
+  int quadrant_a, quadrant_b;
+  unsigned is_right, is_top;
 
   is_right = (va->x >= v->x);
   is_top   = (va->y >= v->y);
@@ -55,6 +59,21 @@ edge_direction_comperator(const Edge* ea, const Edge* eb, const Vertex* v) {
   is_right = (vb->x >= v->x);
   is_top   = (vb->y >= v->y);
   quadrant_b = quadrant_map[(is_right << 1) + is_top];
+
+  #if 0
+  if (v->idx_ == 10) {
+    DBG(DBG_SETUP) << "from " << *v;
+    DBG(DBG_SETUP) << " ea goes to " << *va;
+    DBG(DBG_SETUP) << "  qa " << quadrant_a;
+    DBG(DBG_SETUP) << " eb goes to " << *vb;
+    DBG(DBG_SETUP) << "  qb " << quadrant_b;
+    if (quadrant_a == quadrant_b) {
+      DBG(DBG_SETUP) << " orient:" << Vertex::orientation(*v, *vb, *va);
+    } else {
+      DBG(DBG_SETUP) << " diff  :" << (quadrant_a - quadrant_b);
+    }
+  }
+  #endif
 
   if (quadrant_a == quadrant_b) {
     return Vertex::orientation(*v, *vb, *va);
@@ -69,6 +88,11 @@ DCEL(VertexList&& vertices,
      const InputEdgeSet& edges)
   : all_vertices(std::move(vertices))
 {
+  DBG_FUNC_BEGIN(DBG_SETUP);
+
+  num_faces = 1 - all_vertices.size() + edges.size();
+  DBG(DBG_SETUP) << "# faces: " << num_faces;
+
   all_edges.reserve(edges.size()*2);
   std::vector< std::vector<Edge*> > vertex_edgelist;  // Edges pointing away from each vertex.
 
@@ -89,24 +113,63 @@ DCEL(VertexList&& vertices,
     std::vector<Edge*>& vel = vertex_edgelist[i];
     Vertex* v = &all_vertices[i];
 
-    std::sort(vel.begin(), vel.end(), [v](const Edge* a, const Edge *b){ return Edge::edge_direction_comperator(a, b, v); });
+    std::sort(vel.begin(), vel.end(), [v](const Edge* a, const Edge *b){ return Edge::edge_direction_comperator(a, b, v) < 0; });
+    // DBG(DBG_SETUP) << "at " << *v;
 
     Edge* prev = vel.back();
     for (auto outgoing_e_ptr : vel) {
+      // DBG(DBG_SETUP) << " e to " << *outgoing_e_ptr->v;
       prev->prev = outgoing_e_ptr->opposite;
       outgoing_e_ptr->opposite->next = prev;
 
       prev = outgoing_e_ptr;
     }
-
     v->degree = vel.size();
     v->incident_edge = vel.front()->opposite;
-    v->update_vertex_is_of_higher_degree();
+  }
+
+  /* Find CH vertices */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+  auto it_v_min = std::min_element(all_vertices.begin(), all_vertices.end(), [](const Vertex& a, const Vertex& b){ return (a.x < b.x) || ((a.x == b.x) && (a.y < b.y)); });
+#pragma GCC diagnostic pop
+  Vertex *v_min = &*it_v_min;
+  DBG(DBG_SETUP) << "v_min:" << *v_min;
+  Edge *ch_edge = NULL;
+  /* Walk around v in clockwise order.  Once the det(v, prev, cur) is postive, cur is a CH vertex. */
+
+  const Vertex *v_prev = v_min->incident_edge->opposite->prev->opposite->v;
+  DCEL::AroundVertexFacesIterator it(v_min->incident_edge);
+  for (; *it; ++it) {
+    const Vertex *v_cur = it->opposite->v;
+    if (Vertex::orientation(*v_min, *v_prev, *v_cur) > 0) {
+      ch_edge = it->opposite;
+      break;
+    }
+    v_prev = v_cur;
+  };
+  assert(ch_edge);
+  unsigned num_ch = 0;
+  Edge *e = ch_edge;
+  do {
+    e->is_on_ch = true;
+    DBG(DBG_SETUP) << "Noting that " << *e << " is on the CH";
+    assert( Vertex::orientation(*e->opposite->v, *e->v, *e->next->v) <= 0);
+    e = e->next;
+    ++num_ch;
+  } while (e != ch_edge);
+  DBG(DBG_SETUP) << "# ch vertices: " << num_ch;
+
+  DBG(DBG_SETUP) << "# vertices: " << all_vertices.size();
+  DBG(DBG_SETUP) << "# edges: " << edges.size();
+
+  for (auto& v : all_vertices) {
+    v.update_vertex_is_of_higher_degree();
   }
 
   assert_valid();
 
-  //num_faces = ...
+  DBG_FUNC_END(DBG_SETUP);
 }
 
 void

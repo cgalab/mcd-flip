@@ -95,7 +95,7 @@ using InputEdgeSet = std::unordered_set<std::pair<unsigned,unsigned>, PairHasher
 class Edge {
   private:
   bool is_alive = true;
-  bool is_on_ch = 0;       /** Whether this is the outside buddy of an edge on the CH.  This means the left side is outside and the angle spanned to the next is >= pi */
+  bool is_on_ch = false;   /** Whether this is the outside buddy of an edge on the CH.  This means the left side is outside and the angle spanned to the next is >= pi */
   Edge *opposite;          /** Pointer to the buddy of this edge. */
   Edge *next = NULL;       /** Pointer to the next edge of this triangle. This edge will start at Vertex v. */
   Edge *prev = NULL;       /** Pointer to the previous face of this triangle. */
@@ -267,7 +267,7 @@ public:
 class DCEL {
   /** Iterate around v once, returning a handle for each face.
    *
-   * In general, we'll walk around a vertex in clockwise order.
+   * We walk around a vertex in clockwise order.
    */
   // {{{ Iterators
   class AroundVertexFacesIterator {

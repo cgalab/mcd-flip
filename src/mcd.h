@@ -20,25 +20,14 @@ extern bool main_loop_interrupted;
 
 
 #define DBG_GENERIC                       ( 1u << 0 )
-#define DBG_ITERATORS                     ( 1u << 1 )
-#define DBG_SHOOTHOLE                     ( 1u << 2 )
-#define DBG_SHOOTHOLE2                    ( 1u << 3 )
-#define DBG_DECOMPOSITION_LOOP            ( 1u << 4 )
-#define DBG_UNCONSTRAIN                   ( 1u << 5 )
-#define DBG_FLIP                          ( 1u << 6 )
-// #define DBG_STATESAVE                     ( 1u << x )
-// #define DBG_STATERESTORE                  ( 1u << x )
+#define DBG_SETUP                         ( 1u << 1 )
 
 #define DEBUG_MASK (                  \
                 DBG_GENERIC                       | \
-                DBG_SHOOTHOLE                     | \
+                DBG_SETUP                         | \
                 0 )
 /*
                 DBG_FLIP                          | \
-                DBG_UNCONSTRAIN                   | \
-                DBG_SHOOTHOLE2                    | \
-                DBG_DECOMPOSITION_LOOP            | \
-
                 DBG_ITERATORS                     | \
 
                 DBG_STATESAVE                     | \
