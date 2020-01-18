@@ -37,6 +37,7 @@ struct FixedVector
       Base::resize(new_size, val);
     }
     using Base::at;
+    using Base::front;
     using Base::back;
     using Base::begin;
     using Base::data;

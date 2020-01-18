@@ -13,11 +13,6 @@ INITIALIZE_EASYLOGGINGPP
 unsigned DBG_INDENT_CTR = 0;
 std::default_random_engine random_engine;
 bool main_loop_interrupted = false;
-const unsigned DECL::default_hole_size_base = 7;
-const double DECL::default_hole_size_geometric_param = 0.4; /* Less means larger holes */
-const double DECL::default_flip_nums_exponent = 1./5;
-const double DECL::default_start_hole_at_higher_degree_vertex_probability = 0.75;
-const double DECL::default_num_iterations_exponent = 1.;
 
 /*seconds*/
 
@@ -40,25 +35,11 @@ usage(const char *progname, int err) {
     << "  Options" << std::endl
     << "    --seed NUM             seed of the RNG" << std::endl
     << "    --full-obj             also print vertex coordinates to .obj file" << std::endl
-    << "    --face-obj             outout a face-based obj (instead of a segment based)" << std::endl
-    << "    --to-beat     TO_BEAT  return when a better answer is found" << std::endl
     << "    --lower-bound NUM      return immediately when this is reached" << std::endl
-    << "    --improve RUNS         Do at least RUNS runs/attempts at solving this and improving it *after* beating TO_BEAT" << std::endl
-    << "    --improve-time SECONDS After beating TO_BEAT, work on it for at least this long" << std::endl
-    << "    --improve-max RUNS     Try at most RUNS runs/attempts at solving this before beating TO_BEAT" << std::endl
+    << "    --improve-time SECONDS After improving, keep working for at least this long" << std::endl
     << "    --max-time NUM         Do not start a new run after NUM seconds (overrides improve-* bounds)" << std::endl
     << "    --log-interval SECONDS Report on state regularly." << std::endl
-    << "    --obj-in               Input is an obj file, potentially with already segments/faces to improve" << std::endl
-    << "    --hole_size_base"                                  " (default: " << DECL::default_hole_size_base << ")" << std::endl
-    << "    --hole_size_geometric_param"                       " (default: " << DECL::default_hole_size_geometric_param << ")" << std::endl
-    << "    --flip_nums_exponent"                              " (default: " << DECL::default_flip_nums_exponent << ")" << std::endl
-    << "    --start_hole_at_higher_degree_vertex_probability"  " (default: " << DECL::default_start_hole_at_higher_degree_vertex_probability << ")" << std::endl
-    << "    --num_iterations_exponent"                         " (default: " << DECL::default_num_iterations_exponent << ")" << std::endl
     << std::endl
-    << "hole_size_base x: Initial hole size" << std::endl
-    << "hole_size_geometric_param x: We keep increasing the hole until uniform [0-1) distribution draws a value < x.  So smaller x means larger holes" << std::endl
-    << "start_hole_at_higher_degree_vertex_probability: Probability (out of uniform distribution) to start the hole shooting process at a higher degree vertex." << std::endl
-    << "num_iterations_exponent x: per hole shooting, we do |E|^x many iterations, where |E| is the number of interior edges." << std::endl
   ;
   exit(err);
 }
@@ -71,25 +52,15 @@ signalHandler( int signum ) {
 }
 
 int main(int argc, char *argv[]) {
-  const char * const short_options = "hS:fb:B:I:i:T:L:M:OFH:";
+  const char * const short_options = "hS:fFB:i:T:L:";
   const option long_options[] = {
     { "help"        , no_argument      , 0, 'h'},
     { "seed"        , required_argument, 0, 'S'},
     { "full-obj"    , no_argument      , 0, 'f'},
-    { "face-obj"    , no_argument      , 0, 'F'},
-    { "to-beat"     , required_argument, 0, 'b'},
     { "lower-bound" , required_argument, 0, 'B'},
-    { "improve"     , required_argument, 0, 'I'},
     { "improve-time", required_argument, 0, 'i'},
-    { "improve-max" , required_argument, 0, 'M'},
     { "max-time"    , required_argument, 0, 'T'},
     { "log-interval", required_argument, 0, 'L'},
-    { "obj-in",       no_argument      , 0, 'O'},
-    { "hole_size_base", required_argument, 0, '1'},
-    { "hole_size_geometric_param", required_argument, 0, '2'},
-    { "flip_nums_exponent", required_argument, 0, '3'},
-    { "start_hole_at_higher_degree_vertex_probability", required_argument, 0, '4'},
-    { "num_iterations_exponent", required_argument, 0, '5'},
     { 0, 0, 0, 0}
   };
 
@@ -97,21 +68,10 @@ int main(int argc, char *argv[]) {
 
   long requested_seed = 0;
   bool full_obj = false;
-  bool face_obj = false;
-  unsigned initial_to_beat = 0;
   unsigned lower_bound = 0;
-  unsigned improvement_runs = 10;
-  unsigned improvement_time = 0;
-  unsigned improvement_runs_max = 100000;
+  unsigned improvement_time = 10;
+  int max_time = 30;
   unsigned log_interval = 60;
-  int max_time = 0;
-  bool obj_in = false;
-
-  unsigned hole_size_base = DECL::default_hole_size_base;;
-  double hole_size_geometric_param = DECL::default_hole_size_geometric_param;
-  double flip_nums_exponent = DECL::default_flip_nums_exponent;
-  double start_hole_at_higher_degree_vertex_probability = DECL::default_start_hole_at_higher_degree_vertex_probability;
-  double num_iterations_exponent = DECL::default_num_iterations_exponent;
 
   while (1) {
     int option_index = 0;
@@ -131,28 +91,12 @@ int main(int argc, char *argv[]) {
         full_obj = true;
         break;
 
-      case 'F':
-        face_obj = true;
-        break;
-
-      case 'b':
-        initial_to_beat = atol(optarg);
-        break;
-
       case 'B':
         lower_bound = atol(optarg);
         break;
 
-      case 'I':
-        improvement_runs = atol(optarg);
-        break;
-
       case 'i':
         improvement_time = atol(optarg);
-        break;
-
-      case 'M':
-        improvement_runs_max = atol(optarg);
         break;
 
       case 'T':
@@ -161,26 +105,6 @@ int main(int argc, char *argv[]) {
 
       case 'L':
         log_interval = atol(optarg);
-        break;
-
-      case 'O':
-        obj_in = true;
-        break;
-
-      case '1':
-        hole_size_base = atol(optarg);
-        break;
-      case '2':
-        hole_size_geometric_param = std::stod(optarg);
-        break;
-      case '3':
-        flip_nums_exponent = std::stod(optarg);
-        break;
-      case '4':
-        start_hole_at_higher_degree_vertex_probability = std::stod(optarg);
-        break;
-      case '5':
-        num_iterations_exponent = std::stod(optarg);
         break;
 
       default:
@@ -228,75 +152,53 @@ int main(int argc, char *argv[]) {
   unsigned num_iters_since_improved = 0;
   int best_seed = 0;
 
-  bool have_solution = false;
   std::random_device real_rng("/dev/urandom");
   int seed = requested_seed != 0 ? requested_seed : real_rng();
   std::cout << "version: " << GITVERSION << std::endl;
   std::cout << "random_seed: " << seed << std::endl << std::flush;
   random_engine.seed(seed);
 
-  std::unique_ptr<DECL> decl;
-  if (obj_in) {
-    std::pair<VertexList, InputEdgeSet> p = load_obj(*in);
-    decl = std::make_unique<DECL>(
-      std::move(p.first),
-      &p.second,
-      hole_size_base,
-      hole_size_geometric_param,
-      flip_nums_exponent,
-      start_hole_at_higher_degree_vertex_probability,
-      num_iterations_exponent);
-  } else {
-    decl = std::make_unique<DECL>(
-      load_vertices(*in),
-      hole_size_base,
-      hole_size_geometric_param,
-      flip_nums_exponent,
-      start_hole_at_higher_degree_vertex_probability,
-      num_iterations_exponent);
-  }
-  initial_to_beat = initial_to_beat ? initial_to_beat : decl->get_num_faces();
-  unsigned to_beat = initial_to_beat;
+  std::unique_ptr<DCEL> decl;
+  std::pair<VertexList, InputEdgeSet> p = load_obj(*in);
+  decl = std::make_unique<DCEL>(
+    std::move(p.first),
+    p.second);
+
+  unsigned initial_to_beat = decl->get_num_faces();
+  unsigned current_num_faces = initial_to_beat;
   while (1) {
     decl->assert_valid();
-    decl->find_convex_decomposition();
+    decl->improve_convex_decomposition();
     decl->assert_valid();
 
     ++num_iters;
     ++num_iters_since_improved;
 
     auto now = std::chrono::system_clock::now();
-    unsigned this_num_faces = decl->get_num_faces();
 
-    if (this_num_faces < to_beat) {
-      have_solution = true;
+    if (decl->get_num_faces() < current_num_faces) {
       num_iters_since_improved = 0;
       solution_found_at = now;
-      to_beat = this_num_faces;
+      current_num_faces = decl->get_num_faces();
     }
 
     if (now > last_info_time + info_interval) {
-      if (have_solution) {
-        LOG(INFO) << "Iter " << num_iters << " overall and " << num_iters_since_improved << "/" << improvement_runs << " since improved; This num faces " << this_num_faces << "; to beat: " << to_beat << "; initial to beat: " << initial_to_beat;
+      if (current_num_faces < initial_to_beat) {
+        LOG(INFO) << "Iter " << num_iters << " overall and " << num_iters_since_improved << " since improved; Current num faces " << current_num_faces << "; initial to beat: " << initial_to_beat;
       } else {
-        LOG(INFO) << "Iter " << num_iters << " overall; This num faces " << this_num_faces << "; to beat: " << to_beat;
+        LOG(INFO) << "Iter " << num_iters << " overall; to beat: " << initial_to_beat;
       }
       last_info_time = now;
     }
 
-    if (UNLIKELY(this_num_faces <= lower_bound)) {
+    if (UNLIKELY(current_num_faces <= lower_bound)) {
       LOG(INFO) << "We hit the lower bound of " << lower_bound;
       std::cout << "exit_reason: lower_bound" << std::endl;
       break;
-    } else if (UNLIKELY(have_solution && (num_iters_since_improved >= improvement_runs) && (now > solution_found_at + std::chrono::seconds(improvement_time)))) {
-      LOG(INFO) << "We ran for " << num_iters << " overall and " << num_iters_since_improved << "/" << improvement_runs << " since improved.  We did improve on " << initial_to_beat << " faces by " << (initial_to_beat - this_num_faces);
-      std::cout << "exit_reason: found-after-improvement_runs" << std::endl;
-      std::cout << "improvement_runs: " << improvement_runs << std::endl;
+    } else if (UNLIKELY((decl->get_num_faces() < current_num_faces) && (now > solution_found_at + std::chrono::seconds(improvement_time)))) {
+      LOG(INFO) << "We ran for " << num_iters << " overall and " << num_iters_since_improved << " since improved.  We did improve on " << initial_to_beat << " faces by " << (initial_to_beat - current_num_faces);
+      std::cout << "exit_reason: found-after-improvement_time" << std::endl;
       std::cout << "improvement_time: " << improvement_time << std::endl;
-      break;
-    } else if (UNLIKELY(!have_solution && num_iters_since_improved >= improvement_runs_max)) {
-      LOG(INFO) << "We ran for " << num_iters_since_improved << " without improving on " << initial_to_beat;
-      std::cout << "exit_reason: not-found-after-improvement_runs-max" << std::endl;
       break;
     } else if (UNLIKELY(max_time != 0 && now > end_time)) {
       LOG(INFO) << "We ran for max-time of " << max_time << " seconds.  (We did " << num_iters << " iterations total.)";
@@ -315,6 +217,6 @@ int main(int argc, char *argv[]) {
   std::cout << "time_since_found: " << milliseconds.count()/1000. << std::endl;
   milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start_time);
   std::cout << "run_time: " << milliseconds.count()/1000. << std::endl;
-  decl->write_obj_segments(full_obj, face_obj, *out);
+  decl->write_obj_segments(full_obj, *out);
   return 0;
 }

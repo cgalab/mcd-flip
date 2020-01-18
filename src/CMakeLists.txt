@@ -1,6 +1,6 @@
-project (mcd-recurse VERSION "0.1" LANGUAGES "C")
+project (mcd-flip VERSION "0.1" LANGUAGES "C")
 
-set(_target "mcd-recurse")
+set(_target "mcd-flip")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -14,7 +14,6 @@ add_executable("${_target}"
                        io.cpp
                        geom.cpp
                        main.cpp
-                       triangle/triangle.c
                        "${PROJECT_BINARY_DIR}/gitversion.h"
                        )
 
