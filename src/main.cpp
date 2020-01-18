@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
       LOG(INFO) << "We hit the lower bound of " << lower_bound;
       std::cout << "exit_reason: lower_bound" << std::endl;
       break;
-    } else if (UNLIKELY((decl->get_num_faces() < current_num_faces) && (now > solution_found_at + std::chrono::seconds(improvement_time)))) {
+    } else if (UNLIKELY((current_num_faces < initial_to_beat) && (now > solution_found_at + std::chrono::seconds(improvement_time)))) {
       LOG(INFO) << "We ran for " << num_iters << " overall and " << num_iters_since_improved << " since improved.  We did improve on " << initial_to_beat << " faces by " << (initial_to_beat - current_num_faces);
       std::cout << "exit_reason: found-after-improvement_time" << std::endl;
       std::cout << "improvement_time: " << improvement_time << std::endl;
