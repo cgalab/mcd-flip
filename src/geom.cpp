@@ -229,7 +229,7 @@ improve_convex_decomposition() {
      * It coincides either when there only is a triangle on the side, or when
      * wheter are only pi-degree vertices between the tail and the new tip.
      */
-    if (move_right || 1) {
+    if (move_right) {
       if (e->v == e->opposite->next->next->v) {
         DBG(DBG_IMPROVE) << " move would collapse a triangle";
         break;
@@ -319,8 +319,96 @@ improve_convex_decomposition() {
         remove_edge(e->opposite->next);
         assert_valid();
       };
-
     } else {
+      if (e == e->next->next->next) {
+        DBG(DBG_IMPROVE) << " move would collapse a triangle";
+        break;
+      }
+      Vertex* tail = e->opposite->v;
+      const Vertex* new_tip = e->next->v;
+      const Vertex* in_between = e->prev->opposite->v;
+      assert(new_tip != in_between);
+      DBG(DBG_IMPROVE) << "tail       :" << *tail;
+      DBG(DBG_IMPROVE) << "in_between :" << *in_between;
+      DBG(DBG_IMPROVE) << "new_tip    :" << *new_tip;
+      int o = Vertex::orientation(*tail, *in_between, *new_tip);
+      DBG(DBG_IMPROVE) << "o:" << o;
+      if (o == 0) {
+        DBG(DBG_IMPROVE) << " moving onto collinear edges";
+        break;
+      }
+      assert(o < 0);
+
+      const Vertex* other_behind_tail = e->opposite->next->v;
+      if (Vertex::orientation(*other_behind_tail, *tail, *new_tip) > 0) {
+        DBG(DBG_IMPROVE) << " would create reflex tail";
+        break;
+      }
+
+      /* We can move the tip */
+      Vertex* old_v = e->v;
+      Edge* old_op_prev = e->opposite->prev;
+      Edge* moved_over = e->next;
+      Edge* new_next = moved_over->next;
+
+      old_v->incident_edge = old_op_prev;
+      assert(old_v->incident_edge->v == old_v);
+
+      moved_over->set_next(e->opposite);
+      old_op_prev->set_next(moved_over);
+      e->set_next(new_next);
+
+      bool new_v_old_is_of_higher_degree = moved_over->v->is_of_higher_degree;
+      e->v = moved_over->v;
+      assert(e->v == new_next->opposite->v);
+
+      old_v->dec_degree();
+      e->v->inc_degree();
+
+      bool tail_old_is_of_higher_degree = tail->is_of_higher_degree;
+      tail->update_vertex_is_of_higher_degree();
+
+      assert(e->v->is_of_higher_degree);
+      assert(old_v == higher_degree_vertices[v_idx_in_higher_degree_vertices]);
+
+      if (! old_v->is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
+        higher_degree_vertices_remove(v_idx_in_higher_degree_vertices);
+      }
+      if (new_v_old_is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
+      } else {
+        DBG(DBG_IMPROVE) << "Adding new higher_degree_vertex";
+        higher_degree_vertices_append(e->v);
+      }
+      if (tail_old_is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "Tail previously was of higher degree with degree " << tail->degree;
+        if (!tail->is_of_higher_degree) {
+          DBG(DBG_IMPROVE) << "But is no more!";
+          higher_degree_vertices_remove(tail);
+        }
+      } else if (tail->is_of_higher_degree) {
+        DBG(DBG_IMPROVE) << "Adding tail to higher_degree_vertex";
+        higher_degree_vertices_append(tail);
+      };
+
+      assert_valid();
+
+      if (moved_over->can_remove()) {
+        DBG(DBG_IMPROVE) << "(1) We can remove an edge!";
+        remove_edge(moved_over);
+        assert_valid();
+      };
+      if (new_next->can_remove()) {
+        DBG(DBG_IMPROVE) << "(2) We can remove an edge!";
+        remove_edge(new_next);
+        assert_valid();
+      };
+      if (e->prev->can_remove()) {
+        DBG(DBG_IMPROVE) << "(3) We can remove an edge!";
+        remove_edge(e->prev);
+        assert_valid();
+      };
     }
   } while (0);
 
