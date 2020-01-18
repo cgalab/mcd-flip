@@ -261,14 +261,9 @@ improve_convex_decomposition() {
       old_v->incident_edge = moved_over;
       assert(old_v->incident_edge->v == old_v);
 
-      old_next->prev = moved_over;
-      moved_over->next = old_next;
-
-      moved_over->prev = e;
-      e->next = moved_over;
-
-      e->opposite->prev = new_opposite_prev;
-      new_opposite_prev->next = e->opposite;
+      moved_over->set_next(old_next);
+      e->set_next(moved_over);
+      new_opposite_prev->set_next(e->opposite);
 
       bool new_v_old_is_of_higher_degree = new_opposite_prev->v->is_of_higher_degree;
       e->v = new_opposite_prev->v;
@@ -285,35 +280,23 @@ improve_convex_decomposition() {
 
       if (! old_v->is_of_higher_degree) {
         DBG(DBG_IMPROVE) << " Old_v is no longer a higher degree vertex; Removing old vertex from higher_degree_vertex";
-        higher_degree_vertices[v_idx_in_higher_degree_vertices] = higher_degree_vertices.back();
-        higher_degree_vertices.pop_back();
-
-        higher_degree_vertices[v_idx_in_higher_degree_vertices]->idx_in_higher_degree_vertices = v_idx_in_higher_degree_vertices;
-        old_v->idx_in_higher_degree_vertices = -1;
+        higher_degree_vertices_remove(v_idx_in_higher_degree_vertices);
       }
       if (new_v_old_is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "new_v previously was a higher degree vertex";
       } else {
         DBG(DBG_IMPROVE) << "Adding new higher_degree_vertex";
-        e->v->idx_in_higher_degree_vertices = higher_degree_vertices.size();
-        higher_degree_vertices.push_back(e->v);
+        higher_degree_vertices_append(e->v);
       }
       if (tail_old_is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "Tail previously was of higher degree with degree " << tail->degree;
         if (!tail->is_of_higher_degree) {
           DBG(DBG_IMPROVE) << "But is no more!";
-          unsigned idx = tail->idx_in_higher_degree_vertices;
-
-          higher_degree_vertices[idx] = higher_degree_vertices.back();
-          higher_degree_vertices.pop_back();
-
-          higher_degree_vertices[idx]->idx_in_higher_degree_vertices = idx;
-          tail->idx_in_higher_degree_vertices = -1;
+          higher_degree_vertices_remove(tail);
         }
       } else if (tail->is_of_higher_degree) {
         DBG(DBG_IMPROVE) << "Adding tail to higher_degree_vertex";
-        tail->idx_in_higher_degree_vertices = higher_degree_vertices.size();
-        higher_degree_vertices.push_back(tail);
+        higher_degree_vertices_append(tail);
       };
 
 

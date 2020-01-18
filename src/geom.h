@@ -196,6 +196,12 @@ public:
     assert_valid();
   }
 
+  /* Join this to next */
+  void set_next(Edge* n) {
+    next = n;
+    n->prev = this;
+  }
+
 #if 0
   /** Check whether this edge can be flipped.
    *
@@ -306,6 +312,23 @@ class DCEL {
   /* Helper functions */
   private:
     std::vector<Vertex*> higher_degree_vertices;
+
+    void higher_degree_vertices_remove(unsigned i) {
+      Vertex *old = higher_degree_vertices[i];
+      higher_degree_vertices[i] = higher_degree_vertices.back();
+      higher_degree_vertices.pop_back();
+      higher_degree_vertices[i]->idx_in_higher_degree_vertices = i;
+      old->idx_in_higher_degree_vertices = -1;
+    }
+    void higher_degree_vertices_remove(Vertex *v) {
+      assert(v->idx_in_higher_degree_vertices >= 0);
+      assert(higher_degree_vertices[v->idx_in_higher_degree_vertices] == v);
+      higher_degree_vertices_remove(v->idx_in_higher_degree_vertices);
+    }
+    void higher_degree_vertices_append(Vertex* v) {
+      v->idx_in_higher_degree_vertices = higher_degree_vertices.size();
+      higher_degree_vertices.push_back(v);
+    }
 
   /* The state of the DCEL */
   private:
