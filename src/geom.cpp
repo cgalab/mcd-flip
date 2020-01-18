@@ -165,6 +165,10 @@ DCEL(VertexList&& vertices,
 
   for (auto& v : all_vertices) {
     v.update_vertex_is_of_higher_degree();
+    if (v.is_of_higher_degree) {
+      DBG(DBG_SETUP) << " of higher degree: " << v;
+      higher_degree_vertices.push_back(&v);
+    }
   }
 
   assert_valid();
@@ -274,12 +278,21 @@ find_convex_decomposition() {
 void
 DCEL::
 assert_valid() const {
+  unsigned cnt_high_degree = 0;
   for (const auto &v : all_vertices) {
     v.assert_valid();
+    if (v.is_of_higher_degree) {
+      ++cnt_high_degree;
+    };
   }
   for (const auto &e : all_edges) {
     if (!e.is_alive) continue;
     e.assert_valid();
+  }
+
+  assert(cnt_high_degree == higher_degree_vertices.size());
+  for (auto vptr_it : higher_degree_vertices) {
+    assert(vptr_it->is_of_higher_degree);
   }
 }
 #endif

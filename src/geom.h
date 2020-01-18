@@ -304,9 +304,7 @@ class DCEL {
 
   /* Helper functions */
   private:
-    /* setup */
-
-    /* Decomposition */
+    std::vector<Vertex*> higher_degree_vertices;
 
   /* The state of the DCEL */
   private:

@@ -69,8 +69,8 @@ int main(int argc, char *argv[]) {
   long requested_seed = 0;
   bool full_obj = false;
   unsigned lower_bound = 0;
-  unsigned improvement_time = 10;
-  int max_time = 30;
+  unsigned improvement_time = 1;
+  int max_time = 3;
   unsigned log_interval = 60;
 
   while (1) {
