@@ -331,16 +331,16 @@ class DCEL {
     void remove_edge(Edge* e) {
       e->remove();
       if (! e->v->is_of_higher_degree) {
-        DBG(DBG_GENERIC) << "removed e->v is no longer of higher degree";
+        DBG(DBG_DCEL) << "removed e->v is no longer of higher degree";
         higher_degree_vertices_remove(e->v);
       } else {
-        DBG(DBG_GENERIC) << "removed e->v still is of higher degree";
+        DBG(DBG_DCEL) << "removed e->v still is of higher degree";
       }
       if (! e->opposite->v->is_of_higher_degree) {
-        DBG(DBG_GENERIC) << "removed e->opposite->v is no longer of higher degree";
+        DBG(DBG_DCEL) << "removed e->opposite->v is no longer of higher degree";
         higher_degree_vertices_remove(e->opposite->v);
       } else {
-        DBG(DBG_GENERIC) << "removed e->opposite->v still is of higher degree";
+        DBG(DBG_DCEL) << "removed e->opposite->v still is of higher degree";
       }
       --num_faces;
     }
@@ -354,7 +354,7 @@ class DCEL {
     FixedVector<Edge> all_edges; /** The list of all edges */
     unsigned num_faces; /** The number of faces of the entire graph right now. */
 
-    bool improve_convex_decomposition_for_edge(Edge* e);
+    bool improve_convex_decomposition_for_edge(Edge* e, bool rotate_right);
 
   /* public interface */
   public:
