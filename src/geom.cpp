@@ -236,7 +236,8 @@ improve_convex_decomposition() {
 
       Edge* e;
       bool edge_moved = false;
-      for (bool both_directions = true ; both_directions; both_directions = false) {
+      for (int both_directions = 1 ; both_directions >=0 ; --both_directions) {
+        DBG(DBG_IMPROVE) << "dir: " << both_directions;
 
         DCEL::AroundVertexFacesIterator it2(e_start);
         for (; *it2; ++it2) {
@@ -253,11 +254,9 @@ improve_convex_decomposition() {
             DBG(DBG_IMPROVE2) << "could not move: " << *e;
           };
         }
-        if (! *it2) {
-          DBG(DBG_IMPROVE2) << "No edge could be moved";
-        } else {
+        if (*it2) {
           edge_moved = true;
-          DBG(DBG_IMPROVE2) << "We moved an edge: " << *e;
+          DBG(DBG_IMPROVE) << "We moved an edge: " << *e;
           prev_moved_edge = e;
           prev_random_bool = random_bool;
           v = e->v;
@@ -267,12 +266,14 @@ improve_convex_decomposition() {
             assert(num_faces < old_num_faces);
             assert_valid();
           }
+          break;
         }
       }
       if (!edge_moved) {
+        DBG(DBG_IMPROVE) << "No edge could be moved";
         break;
       } else if (! v->is_of_higher_degree) {
-         break;
+        break;
       }
     }
   }
