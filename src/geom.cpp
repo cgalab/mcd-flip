@@ -90,10 +90,13 @@ edge_direction_comperator(const Edge* ea, const Edge* eb, const Vertex* v) {
 
 DCEL::
 DCEL(VertexList&& vertices,
-     const InputEdgeSet& edges)
+     const InputEdgeSet& edges,
+     const double move_freedom_in_direction_probability_)
   : all_vertices(std::move(vertices))
+  , move_freedom_in_direction_probability(move_freedom_in_direction_probability_)
 {
   DBG_FUNC_BEGIN(DBG_SETUP);
+  std::cout << "move_freedom_in_direction_probability: " << move_freedom_in_direction_probability << std::endl;
 
   if (all_vertices.size() == 0) {
     LOG(ERROR) << "No vertices loaded!";
@@ -194,24 +197,51 @@ improve_convex_decomposition() {
 
 
   /* Pick a vertex */
-  Vertex* v;
-  {
-    std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
-    int v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
+  std::uniform_int_distribution<unsigned> vertex_picker(0, higher_degree_vertices.size() - 1);
+  int v_idx_in_higher_degree_vertices = vertex_picker(random_engine);
 
-    v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
-    assert(v->idx_in_higher_degree_vertices == v_idx_in_higher_degree_vertices);
-    DBG(DBG_IMPROVE) << "picked:" << *v;
+  Vertex* v = higher_degree_vertices[v_idx_in_higher_degree_vertices];
+  assert(v->idx_in_higher_degree_vertices == v_idx_in_higher_degree_vertices);
+  DBG(DBG_IMPROVE) << "picked:" << *v;
+
+  std::uniform_real_distribution<> dist(0, 1);
+  bool walk_directed = (dist(random_engine) <= move_freedom_in_direction_probability);
+  if (walk_directed) {
+    int v_idx_direction;
+    int cnt = 0;
+    do {
+      v_idx_direction = vertex_picker(random_engine);
+      ++cnt;
+      if (cnt > 1000) {
+        LOG(ERROR) << "Could not get a vertex for the direction";
+        abort();
+      }
+    } while (v_idx_direction == v_idx_in_higher_degree_vertices);
+    Vertex* v_direction = higher_degree_vertices[v_idx_direction];
+    assert(v_direction->idx_in_higher_degree_vertices == v_idx_direction);
+    DBG(DBG_IMPROVE) << "direction:" << *v_direction;
+
+    improve_convex_decomposition_starting_at_v(v, v_direction);
+  } else {
+    improve_convex_decomposition_starting_at_v(v);
   }
 
+  DBG_FUNC_END(DBG_IMPROVE2);
+}
+
+/** Start at v, and do random edge rotations, moving the action with the freedom of v.
+ */
+void
+DCEL::
+improve_convex_decomposition_starting_at_v(Vertex *v, const Vertex* const v_direction) {
+  DBG_FUNC_BEGIN(DBG_IMPROVE2);
   int max_moves = 100;
   Edge *prev_moved_edge = NULL;
   bool prev_random_bool = false;
   while (max_moves > 0) {
     --max_moves;
 
-    DBG(DBG_IMPROVE) << "max moves: " << max_moves;
-    LOG(INFO) << "max moves: " << max_moves;
+    DBG(DBG_IMPROVE2) << "max moves: " << max_moves;
     Edge* e_start;
     /* Pick a random starting edge */
     {
@@ -237,7 +267,120 @@ improve_convex_decomposition() {
       Edge* e;
       bool edge_moved = false;
       for (int both_directions = 1 ; both_directions >=0 ; --both_directions) {
-        DBG(DBG_IMPROVE) << "dir: " << both_directions;
+        DCEL::AroundVertexFacesIterator it2(e_start);
+        for (; *it2; ++it2) {
+          if (! it2->can_remove_at_tip()) continue;
+          e = *it2;
+          assert(! e->is_on_ch && !e->opposite->is_on_ch);
+          DBG(DBG_IMPROVE2) << " trying: " << *e;
+
+          if (e == prev_moved_edge && random_bool == prev_random_bool) {
+            DBG(DBG_IMPROVE2) << "Not moving edge back: " << *e;
+          } else if (improve_convex_decomposition_for_edge(e, both_directions ^ random_bool, v_direction)) {
+            break;
+          } else {
+            DBG(DBG_IMPROVE2) << "could not move: " << *e;
+          };
+        }
+        if (*it2) {
+          edge_moved = true;
+          DBG(DBG_IMPROVE2) << "We moved an edge: " << *e;
+          prev_moved_edge = e;
+          prev_random_bool = random_bool;
+          v = e->v;
+
+          if (num_faces != old_num_faces) {
+            DBG(DBG_IMPROVE) << "And we removed an edge; num faces now: " << num_faces << "; old: " << old_num_faces;
+            assert(num_faces < old_num_faces);
+            assert_valid();
+          }
+          break;
+        }
+      }
+      if (!edge_moved) {
+        DBG(DBG_IMPROVE2) << "No edge could be moved";
+        break;
+      } else if (! v->is_of_higher_degree) {
+        break;
+      }
+    }
+  }
+  DBG_FUNC_END(DBG_IMPROVE2);
+}
+
+#if 0
+/** Start at v and try to move the freedom towards v_direction.
+ */
+void
+DCEL::
+improve_convex_decomposition_direction(Vertex *v, const Vertex * const v_direction) {
+  DBG_FUNC_BEGIN(DBG_IMPROVE2);
+  int max_moves = 100;
+  std::uniform_int_distribution<unsigned> direction_picker(0, 1);
+
+  while (max_moves > 0) {
+    --max_moves;
+
+    DBG(DBG_IMPROVE) << "max moves: " << max_moves;
+    Edge* e_start;
+    /* Find the starting edge.
+     * We could pick any edge in the correct half-space, but for now
+     * just find the angle at v that has v_direction in it, and then
+     * pick one of the two incident edges. */
+    DCEL::AroundVertexFacesCyclicIterator it(v->incident_edge);
+    while (Vertex::orientation(*v, *it->opposite->v, *v_direction) > 0) {
+      ++it;
+    }
+    ++it;
+    while (Vertex::orientation(*v, *it->opposite->v, *v_direction) < 0) {
+      ++it;
+    }
+    /* v_direction should now be right of it */
+    DBG(DBG_IMPROVE2) << "v  : " << *v;
+    DBG(DBG_IMPROVE2) << "v_d: " << *v_direction;
+    DBG(DBG_IMPROVE2) << "o1 < 0 : " << Vertex::orientation(*v, *v_direction, *it->opposite->v);
+    DBG(DBG_IMPROVE2) << "o2 > 0 : " << Vertex::orientation(*v, *v_direction, *it->opposite->prev->opposite->v);
+
+    bool random_bool = direction_picker(random_engine);
+    bool did_rotate = false;
+    for (int which_edge_first = 1 ; which_edge_first >=0 ; --which_edge_first) {
+      if (which_edge_first ^ random_bool) {
+        Edge* e = *it;
+        if (e->can_remove_at_tip() && improve_convex_decomposition_for_edge(e, true)) {
+          DBG(DBG_IMPROVE) << "Rotated right: " << max_moves;
+          did_rotate = true;
+          v = e->v;
+          break;
+        }
+      } else {
+        Edge* e = it->opposite->prev;
+        if (e->can_remove_at_tip() && improve_convex_decomposition_for_edge(e, false)) {
+          DBG(DBG_IMPROVE) << "Rotated Left: " << max_moves;
+          did_rotate = true;
+          v = e->v;
+          break;
+        }
+      }
+    }
+    if (! did_rotate) {
+      DBG(DBG_IMPROVE) << "Could not rotate either.";
+      break;
+    } else if (! v->is_of_higher_degree) {
+      break;
+    }
+  };
+#if 0
+    /* Try all edges */
+    {
+      unsigned old_num_faces = num_faces;
+
+      /* Move left or right first */
+      std::uniform_int_distribution<unsigned> direction_picker(0, 1);
+      bool random_bool = direction_picker(random_engine);
+
+      Edge* e;
+      bool edge_moved = false;
+      for (bool both_directions = true ; both_directions; both_directions = false) {
 
         DCEL::AroundVertexFacesIterator it2(e_start);
         for (; *it2; ++it2) {
@@ -254,9 +397,11 @@ improve_convex_decomposition() {
             DBG(DBG_IMPROVE2) << "could not move: " << *e;
           };
         }
-        if (*it2) {
+        if (! *it2) {
+          DBG(DBG_IMPROVE2) << "No edge could be moved";
+        } else {
           edge_moved = true;
-          DBG(DBG_IMPROVE) << "We moved an edge: " << *e;
+          DBG(DBG_IMPROVE2) << "We moved an edge: " << *e;
           prev_moved_edge = e;
           prev_random_bool = random_bool;
           v = e->v;
@@ -266,19 +411,19 @@ improve_convex_decomposition() {
             assert(num_faces < old_num_faces);
             assert_valid();
           }
-          break;
         }
       }
       if (!edge_moved) {
-        DBG(DBG_IMPROVE) << "No edge could be moved";
         break;
       } else if (! v->is_of_higher_degree) {
-        break;
+         break;
       }
     }
   }
+#endif
   DBG_FUNC_END(DBG_IMPROVE2);
 }
+#endif
 
 
 /* try to improve the convex decomposition by moving the tip of e randomly left or right.
@@ -286,13 +431,16 @@ improve_convex_decomposition() {
  * returns true if we could move it.
  *
  * if possible, then removes an incident edge after having rotated e.
+ *
+ * if v_direction is not NULL, only rotate the edge if it moves the freedom closer to v_direction
  */
 bool
 DCEL::
-improve_convex_decomposition_for_edge(Edge* e, bool rotate_right) {
+improve_convex_decomposition_for_edge(Edge* e, bool rotate_right, const Vertex* const v_direction) {
   bool res = false;
   DBG_FUNC_BEGIN(DBG_IMPROVE2);
 
+  assert(e->can_remove_at_tip());
   do {
     /* Check if legal to move.  It must not coincide with any edges once moved,
      * and the angle at the tail end must not get > pi.
@@ -307,6 +455,10 @@ improve_convex_decomposition_for_edge(Edge* e, bool rotate_right) {
       }
       Vertex* tail = e->opposite->v;
       const Vertex* new_tip = e->opposite->prev->opposite->v;
+      if (v_direction && Vertex::squared_distance(*v_direction, *e->v) < Vertex::squared_distance(*v_direction, *new_tip)) {
+        DBG(DBG_IMPROVE2) << " moving freedom away from target";
+        break;
+      }
       const Vertex* in_between = e->opposite->next->v;
       assert(new_tip != in_between);
       DBG(DBG_IMPROVE2) << "tail       :" << *tail;
@@ -396,6 +548,10 @@ improve_convex_decomposition_for_edge(Edge* e, bool rotate_right) {
       }
       Vertex* tail = e->opposite->v;
       const Vertex* new_tip = e->next->v;
+      if (v_direction && Vertex::squared_distance(*v_direction, *e->v) < Vertex::squared_distance(*v_direction, *new_tip)) {
+        DBG(DBG_IMPROVE2) << " moving freedom away from target";
+        break;
+      }
       const Vertex* in_between = e->prev->opposite->v;
       assert(new_tip != in_between);
       DBG(DBG_IMPROVE2) << "tail       :" << *tail;

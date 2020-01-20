@@ -69,6 +69,11 @@ public:
     double det = det1 - det2;
     return signum(det);
   }
+  static double squared_distance(const Vertex& a, const Vertex &b) {
+    double dx = (a.x - b.x);
+    double dy = (a.y - b.y);
+    return dx*dx + dy*dy;
+  }
 
   friend class Edge;
   friend class DCEL;
@@ -305,6 +310,42 @@ class DCEL {
       return *this;
     }
   };
+
+  /** Walks around a vertex for forever.  Increasing moves clock-wise, decreasing counter-clockwise. */
+  class AroundVertexFacesCyclicIterator {
+  protected:
+    Edge * e_cur;
+
+  public:
+    AroundVertexFacesCyclicIterator(Edge* e_vertex)
+      : e_cur(e_vertex)
+    {
+      assert(e_vertex);
+      assert(e_vertex->is_alive);
+    }
+
+    Edge* operator*() const { return e_cur; }
+    Edge* operator->() const { return e_cur; }
+
+    AroundVertexFacesCyclicIterator& operator++() {
+      assert(e_cur->is_alive);
+
+      Edge* e_prev = e_cur;
+      e_cur = e_cur->next->opposite;
+      assert(e_cur->v == e_prev->v);
+
+      return *this;
+    }
+    AroundVertexFacesCyclicIterator& operator--() {
+      assert(e_cur->is_alive);
+
+      Edge* e_prev = e_cur;
+      e_cur = e_cur->opposite->prev;
+      assert(e_cur->v == e_prev->v);
+
+      return *this;
+    }
+  };
   // }}}}}}
 
   /* Helper functions */
@@ -354,12 +395,18 @@ class DCEL {
     FixedVector<Edge> all_edges; /** The list of all edges */
     unsigned num_faces; /** The number of faces of the entire graph right now. */
 
-    bool improve_convex_decomposition_for_edge(Edge* e, bool rotate_right);
+    bool improve_convex_decomposition_for_edge(Edge* e, bool rotate_right, const Vertex* const v_direction);
+    void improve_convex_decomposition_starting_at_v(Vertex *v, const Vertex* const v_direction = NULL);
+    //void improve_convex_decomposition_direction(Vertex *v, const Vertex * const v_direction);
 
   /* public interface */
   public:
+    static const double default_move_freedom_in_direction_probability;
+    const double move_freedom_in_direction_probability;
+
     /** Initialize the DCEL with the vertices and a triangulation of their CH */
-    DCEL(VertexList&& vertices, const InputEdgeSet& edges);
+    DCEL(VertexList&& vertices, const InputEdgeSet& edges,
+      const double move_freedom_in_direction_probability_);
 
     void write_obj_segments(bool dump_vertices, std::ostream &o);
     unsigned get_num_faces() const { return num_faces; }

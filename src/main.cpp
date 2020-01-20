@@ -13,6 +13,7 @@ INITIALIZE_EASYLOGGINGPP
 unsigned DBG_INDENT_CTR = 0;
 std::default_random_engine random_engine;
 bool main_loop_interrupted = false;
+const double DCEL::default_move_freedom_in_direction_probability = 0.60;
 
 /*seconds*/
 
@@ -39,6 +40,7 @@ usage(const char *progname, int err) {
     << "    --improve-time SECONDS After improving, keep working for at least this long" << std::endl
     << "    --max-time NUM         Do not start a new run after NUM seconds (overrides improve-* bounds)" << std::endl
     << "    --log-interval SECONDS Report on state regularly." << std::endl
+    << "    --move_freedom_in_direction_probability"  " (default: " << DCEL::default_move_freedom_in_direction_probability << ")" << std::endl
     << std::endl
   ;
   exit(err);
@@ -61,6 +63,7 @@ int main(int argc, char *argv[]) {
     { "improve-time", required_argument, 0, 'i'},
     { "max-time"    , required_argument, 0, 'T'},
     { "log-interval", required_argument, 0, 'L'},
+    { "move_freedom_in_direction_probability", required_argument, 0, '1'},
     { 0, 0, 0, 0}
   };
 
@@ -72,6 +75,7 @@ int main(int argc, char *argv[]) {
   unsigned improvement_time = 1;
   int max_time = 3;
   unsigned log_interval = 60;
+  double move_freedom_in_direction_probability = DCEL::default_move_freedom_in_direction_probability;
 
   while (1) {
     int option_index = 0;
@@ -105,6 +109,10 @@ int main(int argc, char *argv[]) {
 
       case 'L':
         log_interval = atol(optarg);
+        break;
+
+      case '1':
+        move_freedom_in_direction_probability = std::stod(optarg);
         break;
 
       default:
@@ -162,7 +170,8 @@ int main(int argc, char *argv[]) {
   std::pair<VertexList, InputEdgeSet> p = load_obj(*in);
   decl = std::make_unique<DCEL>(
     std::move(p.first),
-    p.second);
+    p.second,
+    move_freedom_in_direction_probability);
 
   unsigned initial_to_beat = decl->get_num_faces();
   unsigned current_num_faces = initial_to_beat;
