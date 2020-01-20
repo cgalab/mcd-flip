@@ -18,6 +18,8 @@ assert_valid() const {
   assert(this == prev->next);
   assert(this == next->prev);
   assert(v == opposite->prev->v);
+
+  assert(v != opposite->v);
 }
 #endif
 
@@ -203,10 +205,13 @@ improve_convex_decomposition() {
   }
 
   int max_moves = 100;
+  Edge *prev_moved_edge = NULL;
+  bool prev_random_bool = false;
   while (max_moves > 0) {
     --max_moves;
 
-    DBG(DBG_IMPROVE2) << "max moves: " << max_moves;
+    DBG(DBG_IMPROVE) << "max moves: " << max_moves;
+    LOG(INFO) << "max moves: " << max_moves;
     Edge* e_start;
     /* Pick a random starting edge */
     {
@@ -240,7 +245,9 @@ improve_convex_decomposition() {
           assert(! e->is_on_ch && !e->opposite->is_on_ch);
           DBG(DBG_IMPROVE2) << " trying: " << *e;
 
-          if (improve_convex_decomposition_for_edge(e, both_directions ^ random_bool)) {
+          if (e == prev_moved_edge && random_bool == prev_random_bool) {
+            DBG(DBG_IMPROVE2) << "Not moving edge back: " << *e;
+          } else if (improve_convex_decomposition_for_edge(e, both_directions ^ random_bool)) {
             break;
           } else {
             DBG(DBG_IMPROVE2) << "could not move: " << *e;
@@ -250,7 +257,9 @@ improve_convex_decomposition() {
           DBG(DBG_IMPROVE2) << "No edge could be moved";
         } else {
           edge_moved = true;
-          DBG(DBG_IMPROVE2) << "We moved an edge";
+          DBG(DBG_IMPROVE2) << "We moved an edge: " << *e;
+          prev_moved_edge = e;
+          prev_random_bool = random_bool;
           v = e->v;
 
           if (num_faces != old_num_faces) {
