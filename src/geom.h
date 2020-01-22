@@ -404,9 +404,13 @@ class DCEL {
     static const double default_move_freedom_in_direction_probability;
     const double move_freedom_in_direction_probability;
 
+    static const unsigned default_move_distance_prob_bound;
+    const unsigned move_distance_prob_bound;
+
     /** Initialize the DCEL with the vertices and a triangulation of their CH */
     DCEL(VertexList&& vertices, const InputEdgeSet& edges,
-      const double move_freedom_in_direction_probability_);
+      const double move_freedom_in_direction_probability_,
+      const unsigned move_distance_prob_bound_);
 
     void write_obj_segments(bool dump_vertices, std::ostream &o);
     unsigned get_num_faces() const { return num_faces; }

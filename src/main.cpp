@@ -14,6 +14,7 @@ unsigned DBG_INDENT_CTR = 0;
 std::default_random_engine random_engine;
 bool main_loop_interrupted = false;
 const double DCEL::default_move_freedom_in_direction_probability = 0.60;
+const unsigned DCEL::default_move_distance_prob_bound = 10;
 
 /*seconds*/
 
@@ -41,6 +42,7 @@ usage(const char *progname, int err) {
     << "    --max-time NUM         Do not start a new run after NUM seconds (overrides improve-* bounds)" << std::endl
     << "    --log-interval SECONDS Report on state regularly." << std::endl
     << "    --move_freedom_in_direction_probability"  " (default: " << DCEL::default_move_freedom_in_direction_probability << ")" << std::endl
+    << "    --move_distance_prob_bound"               " (default: " << DCEL::default_move_distance_prob_bound << ")" << std::endl
     << std::endl
   ;
   exit(err);
@@ -64,6 +66,7 @@ int main(int argc, char *argv[]) {
     { "max-time"    , required_argument, 0, 'T'},
     { "log-interval", required_argument, 0, 'L'},
     { "move_freedom_in_direction_probability", required_argument, 0, '1'},
+    { "move_distance_prob_bound", required_argument, 0, '2'},
     { 0, 0, 0, 0}
   };
 
@@ -76,6 +79,7 @@ int main(int argc, char *argv[]) {
   int max_time = 3;
   unsigned log_interval = 60;
   double move_freedom_in_direction_probability = DCEL::default_move_freedom_in_direction_probability;
+  unsigned move_distance_prob_bound = DCEL::default_move_distance_prob_bound;
 
   while (1) {
     int option_index = 0;
@@ -113,6 +117,10 @@ int main(int argc, char *argv[]) {
 
       case '1':
         move_freedom_in_direction_probability = std::stod(optarg);
+        break;
+
+      case '2':
+        move_distance_prob_bound = atol(optarg);
         break;
 
       default:
@@ -171,7 +179,8 @@ int main(int argc, char *argv[]) {
   decl = std::make_unique<DCEL>(
     std::move(p.first),
     p.second,
-    move_freedom_in_direction_probability);
+    move_freedom_in_direction_probability,
+    move_distance_prob_bound);
 
   unsigned initial_to_beat = decl->get_num_faces();
   unsigned current_num_faces = initial_to_beat;

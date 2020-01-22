@@ -91,12 +91,15 @@ edge_direction_comperator(const Edge* ea, const Edge* eb, const Vertex* v) {
 DCEL::
 DCEL(VertexList&& vertices,
      const InputEdgeSet& edges,
-     const double move_freedom_in_direction_probability_)
+     const double move_freedom_in_direction_probability_,
+     const unsigned move_distance_prob_bound_)
   : all_vertices(std::move(vertices))
   , move_freedom_in_direction_probability(move_freedom_in_direction_probability_)
+  , move_distance_prob_bound(move_distance_prob_bound_)
 {
   DBG_FUNC_BEGIN(DBG_SETUP);
   std::cout << "move_freedom_in_direction_probability: " << move_freedom_in_direction_probability << std::endl;
+  std::cout << "move_distance_prob_bound: " << move_distance_prob_bound << std::endl;
 
   if (all_vertices.size() == 0) {
     LOG(ERROR) << "No vertices loaded!";
@@ -235,7 +238,8 @@ void
 DCEL::
 improve_convex_decomposition_starting_at_v(Vertex *v, const Vertex* const v_direction) {
   DBG_FUNC_BEGIN(DBG_IMPROVE2);
-  int max_moves = 100;
+  std::uniform_int_distribution<unsigned> max_moves_picker(0, move_distance_prob_bound);
+  int max_moves = max_moves_picker(random_engine);
   Edge *prev_moved_edge = NULL;
   bool prev_random_bool = false;
   while (max_moves > 0) {
