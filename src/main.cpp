@@ -15,7 +15,7 @@ std::default_random_engine random_engine;
 bool main_loop_interrupted = false;
 const double DCEL::default_move_freedom_in_direction_probability = 0.60;
 const unsigned DCEL::default_move_freedom_in_direction_new_pick_ctr = 250000;
-const unsigned DCEL::default_move_distance_prob_bound = 10;
+const unsigned DCEL::default_move_distance_prob_bound = 40;
 
 /*seconds*/
 
