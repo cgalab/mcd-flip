@@ -14,6 +14,7 @@ unsigned DBG_INDENT_CTR = 0;
 std::default_random_engine random_engine;
 bool main_loop_interrupted = false;
 const double DCEL::default_move_freedom_in_direction_probability = 0.60;
+const unsigned DCEL::default_move_freedom_in_direction_new_pick_ctr = 250000;
 const unsigned DCEL::default_move_distance_prob_bound = 10;
 
 /*seconds*/
@@ -42,6 +43,7 @@ usage(const char *progname, int err) {
     << "    --max-time NUM         Do not start a new run after NUM seconds (overrides improve-* bounds)" << std::endl
     << "    --log-interval SECONDS Report on state regularly." << std::endl
     << "    --move_freedom_in_direction_probability"  " (default: " << DCEL::default_move_freedom_in_direction_probability << ")" << std::endl
+    << "    --move_freedom_in_direction_new_pick_ctr" " (default: " << DCEL::default_move_freedom_in_direction_new_pick_ctr << ")" << std::endl
     << "    --move_distance_prob_bound"               " (default: " << DCEL::default_move_distance_prob_bound << ")" << std::endl
     << std::endl
   ;
@@ -66,7 +68,8 @@ int main(int argc, char *argv[]) {
     { "max-time"    , required_argument, 0, 'T'},
     { "log-interval", required_argument, 0, 'L'},
     { "move_freedom_in_direction_probability", required_argument, 0, '1'},
-    { "move_distance_prob_bound", required_argument, 0, '2'},
+    { "move_freedom_in_direction_new_pick_ctr", required_argument, 0, '2'},
+    { "move_distance_prob_bound", required_argument, 0, '3'},
     { 0, 0, 0, 0}
   };
 
@@ -79,6 +82,7 @@ int main(int argc, char *argv[]) {
   int max_time = 3;
   unsigned log_interval = 60;
   double move_freedom_in_direction_probability = DCEL::default_move_freedom_in_direction_probability;
+  unsigned move_freedom_in_direction_new_pick_ctr = DCEL::default_move_freedom_in_direction_new_pick_ctr;
   unsigned move_distance_prob_bound = DCEL::default_move_distance_prob_bound;
 
   while (1) {
@@ -120,6 +124,10 @@ int main(int argc, char *argv[]) {
         break;
 
       case '2':
+        move_freedom_in_direction_new_pick_ctr = atol(optarg);
+        break;
+
+      case '3':
         move_distance_prob_bound = atol(optarg);
         break;
 
@@ -180,6 +188,7 @@ int main(int argc, char *argv[]) {
     std::move(p.first),
     p.second,
     move_freedom_in_direction_probability,
+    move_freedom_in_direction_new_pick_ctr,
     move_distance_prob_bound);
 
   unsigned initial_to_beat = decl->get_num_faces();

@@ -92,13 +92,16 @@ DCEL::
 DCEL(VertexList&& vertices,
      const InputEdgeSet& edges,
      const double move_freedom_in_direction_probability_,
+     const unsigned move_freedom_in_direction_new_pick_ctr_,
      const unsigned move_distance_prob_bound_)
   : all_vertices(std::move(vertices))
   , move_freedom_in_direction_probability(move_freedom_in_direction_probability_)
+  , move_freedom_in_direction_new_pick_ctr(move_freedom_in_direction_new_pick_ctr_)
   , move_distance_prob_bound(move_distance_prob_bound_)
 {
   DBG_FUNC_BEGIN(DBG_SETUP);
   std::cout << "move_freedom_in_direction_probability: " << move_freedom_in_direction_probability << std::endl;
+  std::cout << "move_freedom_in_direction_new_pick_ctr: " << move_freedom_in_direction_new_pick_ctr << std::endl;
   std::cout << "move_distance_prob_bound: " << move_distance_prob_bound << std::endl;
 
   if (all_vertices.size() == 0) {
@@ -210,19 +213,28 @@ improve_convex_decomposition() {
   std::uniform_real_distribution<> dist(0, 1);
   bool walk_directed = (dist(random_engine) <= move_freedom_in_direction_probability);
   if (walk_directed) {
-    int v_idx_direction;
-    int cnt = 0;
-    do {
-      v_idx_direction = vertex_picker(random_engine);
-      ++cnt;
-      if (cnt > 1000) {
-        LOG(ERROR) << "Could not get a vertex for the direction";
-        abort();
-      }
-    } while (v_idx_direction == v_idx_in_higher_degree_vertices);
-    Vertex* v_direction = higher_degree_vertices[v_idx_direction];
-    assert(v_direction->idx_in_higher_degree_vertices == v_idx_direction);
-    DBG(DBG_IMPROVE) << "direction:" << *v_direction;
+    static Vertex* v_direction = NULL;
+    static unsigned pick_new_v_direction = 0;
+
+    if (pick_new_v_direction == 0) {
+      int v_idx_direction;
+      int cnt = 0;
+      do {
+        v_idx_direction = vertex_picker(random_engine);
+        ++cnt;
+        if (cnt > 1000) {
+          LOG(ERROR) << "Could not get a vertex for the direction";
+          abort();
+        }
+      } while (v_idx_direction == v_idx_in_higher_degree_vertices);
+      v_direction = higher_degree_vertices[v_idx_direction];
+      assert(v_direction->idx_in_higher_degree_vertices == v_idx_direction);
+      pick_new_v_direction = move_freedom_in_direction_new_pick_ctr;
+
+      DBG(DBG_IMPROVE) << "direction:" << *v_direction;
+    } else {
+      pick_new_v_direction--;
+    }
 
     improve_convex_decomposition_starting_at_v(v, v_direction);
   } else {
